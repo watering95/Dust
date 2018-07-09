@@ -5,10 +5,16 @@ import android.app.job.JobParameters
 import android.app.job.JobService
 import android.content.Intent
 import android.os.AsyncTask
+import android.os.Bundle
 import android.support.v4.app.NotificationCompat
 import android.support.v4.app.NotificationManagerCompat
+import org.json.JSONObject
+import java.io.*
+import java.net.URL
 
 class DustService : JobService() {
+    val ACTION_DUST_DATA = "com.example.watering.dust.DATA"
+
     private var mCurrentTask = DustTask(this)
 
     override fun onStopJob(params: JobParameters?): Boolean {
@@ -44,10 +50,51 @@ class DustService : JobService() {
         override fun doInBackground(vararg params: JobParameters?): Void? {
             val jobParameters = params[0]
 
-            jobService.showNotification("Hahaha")
+            val url = URL("http://watering.iptime.org:3000/json/log_dust.json")
+            val urlConnection = url.openConnection()
+
+            val inputStream = getStringFromInputStream(BufferedInputStream(urlConnection.getInputStream()))
+            val json:JSONObject = JSONObject(inputStream)
+
+            val dust = json.getString("dust")
+            val time = json.getString("time")
+
+            val bundle = Bundle()
+
+            bundle.putString("dust",dust)
+            bundle.putString("time",time)
+
+            broadcastData(jobService.ACTION_DUST_DATA, bundle)
+
+            if(dust.toFloat() > 100.0) jobService.showNotification(dust)
             jobService.jobFinished(jobParameters, true)
 
             return null
+        }
+
+        fun getStringFromInputStream(inputStream: InputStream): String {
+            val sb = StringBuilder()
+
+            try {
+                val br = BufferedReader(InputStreamReader(inputStream))
+                for(line in br.readLine()) {
+                    sb.append(line)
+                }
+                br.close()
+            }
+            catch (e: IOException) {
+                e.printStackTrace()
+            }
+
+            return sb.toString()
+        }
+
+        fun broadcastData(action:String, data: Bundle) {
+            val DUST = "DUST_DATA"
+            val intent = Intent(action)
+
+            intent.putExtra(DUST, data)
+            jobService.sendBroadcast(intent)
         }
     }
 }
