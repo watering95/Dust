@@ -1,9 +1,15 @@
 package com.example.watering.dust
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.job.JobParameters
 import android.app.job.JobService
+import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
+import android.media.RingtoneManager
 import android.os.AsyncTask
 import android.os.Bundle
 import android.support.v4.app.NotificationCompat
@@ -28,19 +34,38 @@ class DustService : JobService() {
     }
 
     fun showNotification(text:String) {
-        val contentIntent = PendingIntent.getActivity(this, 0, Intent(this, DustActivity::class.java), 0)
+        val channelId = "channel"
+        val channelName = "Channel Name"
+        val importance = NotificationManager.IMPORTANCE_HIGH
 
-        val notification = NotificationCompat.Builder(this)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setTicker(text)
-                .setContentTitle(getText(R.string.app_name))
+        val notificationManager : NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, channelName, importance)
+
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val builder = NotificationCompat.Builder(applicationContext, channelId)
+        val notificationIntent = Intent(applicationContext, DustActivity::class.java)
+
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+        val requestID = System.currentTimeMillis().toInt()
+
+        val pendingInt = PendingIntent.getActivity(applicationContext, requestID, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+        builder.setContentTitle("Dust")
                 .setContentText(text)
-                .setContentIntent(contentIntent)
+                .setDefaults(Notification.DEFAULT_ALL)
                 .setAutoCancel(true)
-                .build()
+                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.ic_launcher_foreground))
+                .setBadgeIconType(R.drawable.ic_launcher_foreground)
+                .setContentIntent(pendingInt)
 
-        val notificationManager = NotificationManagerCompat.from(this)
-        notificationManager.notify(0, notification)
+        notificationManager.notify(0, builder.build())
     }
 
     inner class DustTask() : AsyncTask<JobParameters, Void, Bundle>() {
